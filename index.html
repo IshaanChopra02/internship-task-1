@@ -1,0 +1,642 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Flash Card :D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..700&family=Literata:opsz,wght@7..72,400..600&display=swap">
+<style>
+  /* Layout: one centered column. Progress, an index card with a flip, nav row, card management, then a jump list. */
+  :root {
+    --bg: #E8ECF1;
+    --card: #FFFFFF;
+    --ink: #16202E;
+    --muted: #566275;
+    --edge: #CBD4E0;
+    --edge-strong: #A3AFC1;
+    --rule-blue: #C9DDF3;
+    --rule-red: #E0615A;
+    --accent: #1D3FB8;
+    --accent-ink: #FFFFFF;
+    --danger: #B4322B;
+    --shadow: rgba(22, 32, 46, 0.16);
+    --font-ui: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-card: "Literata", Georgia, "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11151C;
+      --card: #1A212C;
+      --ink: #E6EBF3;
+      --muted: #98A3B5;
+      --edge: #2B3544;
+      --edge-strong: #44526A;
+      --rule-blue: #28405E;
+      --rule-red: #D9625B;
+      --accent: #7F9DFF;
+      --accent-ink: #0F1630;
+      --danger: #FF8B84;
+      --shadow: rgba(0, 0, 0, 0.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11151C;
+    --card: #1A212C;
+    --ink: #E6EBF3;
+    --muted: #98A3B5;
+    --edge: #2B3544;
+    --edge-strong: #44526A;
+    --rule-blue: #28405E;
+    --rule-red: #D9625B;
+    --accent: #7F9DFF;
+    --accent-ink: #0F1630;
+    --danger: #FF8B84;
+    --shadow: rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-block: 28px 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .app { max-width: 680px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .brand { margin: 0; font-size: 1.75rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  .status { margin: 0; font-size: 0.875rem; color: var(--muted); text-align: right; }
+
+  .note { margin: 0 0 14px; font-size: 0.875rem; color: var(--muted); }
+
+  .meter {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+    font-size: 0.875rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--edge); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s ease; }
+
+  .stack { position: relative; isolation: isolate; margin-bottom: 22px; }
+  .stack::before {
+    content: "";
+    position: absolute;
+    inset: 7px -7px -7px 7px;
+    z-index: -1;
+    background: var(--card);
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+  }
+  .card { perspective: 1400px; }
+  .flipper {
+    display: grid;
+    transform-style: preserve-3d;
+    transition: transform 0.55s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
+  .card.flipped .flipper { transform: rotateY(180deg); }
+  .card.snap .flipper { transition: none; }
+
+  .face {
+    grid-area: 1 / 1;
+    position: relative;
+    min-width: 0;
+    min-height: 300px;
+    padding: 46px 24px 28px;
+    border: 1px solid var(--edge);
+    border-radius: 6px;
+    background:
+      linear-gradient(var(--rule-red), var(--rule-red)) 0 44px / 100% 2px no-repeat,
+      repeating-linear-gradient(to bottom, transparent 0, transparent 31px, var(--rule-blue) 31px, var(--rule-blue) 32px) 0 46px / 100% calc(100% - 46px) no-repeat,
+      var(--card);
+    box-shadow: 0 1px 2px var(--shadow), 0 12px 24px -16px var(--shadow);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  .face.back { transform: rotateY(180deg); }
+  .tag {
+    position: absolute;
+    top: 14px;
+    left: 24px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .face p {
+    margin: 0;
+    font-family: var(--font-card);
+    font-size: 1.375rem;
+    font-weight: 400;
+    line-height: 32px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .btn {
+    font: 600 0.9375rem/1 var(--font-ui);
+    min-height: 46px;
+    padding: 0 20px;
+    border-radius: 8px;
+    border: 1px solid var(--edge-strong);
+    background: var(--card);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.small { min-height: 40px; padding: 0 16px; font-size: 0.875rem; }
+  .btn.danger { color: var(--danger); }
+  .btn:focus-visible, .row:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .nav { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 12px; }
+  .hint { margin: 12px 0 0; font-size: 0.8125rem; color: var(--muted); }
+  kbd {
+    font: 600 0.75rem var(--font-ui);
+    padding: 1px 6px;
+    border: 1px solid var(--edge-strong);
+    border-radius: 4px;
+    background: var(--card);
+  }
+
+  .manage {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--edge);
+  }
+  .manage span { font-size: 0.9375rem; margin-right: 4px; }
+
+  .panel {
+    display: grid;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--edge);
+    border-radius: 8px;
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 1.125rem; }
+  .panel label { font-size: 0.875rem; font-weight: 600; }
+  textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    font: 400 1rem/1.5 var(--font-card);
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--edge-strong);
+    border-radius: 6px;
+    resize: vertical;
+  }
+  .error { margin: 0; font-size: 0.875rem; color: var(--danger); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+
+  .empty {
+    padding: 40px 24px;
+    border: 1px dashed var(--edge-strong);
+    border-radius: 8px;
+  }
+  .empty h2 { margin: 0 0 6px; font-size: 1.25rem; }
+  .empty p { margin: 0 0 18px; color: var(--muted); }
+
+  .all { margin-top: 36px; }
+  .all h2 {
+    margin: 0 0 10px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--card);
+    border: 1px solid var(--edge);
+    border-radius: 8px;
+  }
+  .list li + li { border-top: 1px solid var(--edge); }
+  .row {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    gap: 8px;
+    width: 100%;
+    padding: 11px 14px;
+    text-align: left;
+    font: 400 0.9375rem/1.4 var(--font-ui);
+    color: var(--ink);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+  }
+  .row:hover { background: var(--bg); }
+  .row .num { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .row .q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.current { font-weight: 600; color: var(--accent); }
+  .row.current .num { color: var(--accent); }
+  .list-empty { padding: 14px; margin: 0; color: var(--muted); font-size: 0.9375rem; }
+
+  @media (max-width: 520px) {
+    .nav { grid-template-columns: 1fr 1fr; grid-template-areas: "flip flip" "prev next"; }
+    #flip { grid-area: flip; }
+    #prev { grid-area: prev; }
+    #next { grid-area: next; }
+    .face { padding-inline: 18px; min-height: 280px; }
+    .tag { left: 18px; }
+    .face p { font-size: 1.25rem; }
+  }
+  @media (hover: none) { .hint { display: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .flipper, .bar i { transition: none; }
+  }
+</style>
+
+<div class="app">
+  <header>
+    <h1 class="brand">Flash Card</h1>
+    <p id="status" class="status" aria-live="polite">Loading your deck…</p>
+  </header>
+
+  <main>
+    <section id="study" aria-label="Study">
+      <p id="sampleNote" class="note" hidden>These are sample cards. Edit or delete them, or add your own.</p>
+      <div class="meter">
+        <span id="counter">Card 1 of 1</span>
+        <div class="bar" aria-hidden="true"><i id="barFill"></i></div>
+      </div>
+
+      <div class="stack">
+        <div class="card" id="card">
+          <div class="flipper">
+            <section class="face front" id="front" aria-label="Question side">
+              <span class="tag">Question</span>
+              <p id="qText"></p>
+            </section>
+            <section class="face back" id="back" aria-label="Answer side">
+              <span class="tag">Answer</span>
+              <p id="aText"></p>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button type="button" id="prev" class="btn">Previous</button>
+        <button type="button" id="flip" class="btn primary">Show Answer</button>
+        <button type="button" id="next" class="btn">Next</button>
+      </div>
+      <p class="hint"><kbd>←</kbd> <kbd>→</kbd> move between cards, <kbd>Space</kbd> flips the card.</p>
+    </section>
+
+    <section id="empty" class="empty" hidden>
+      <h2>No cards yet</h2>
+      <p>Add a question and its answer to start studying.</p>
+      <button type="button" id="emptyAdd" class="btn primary">Add your first card</button>
+    </section>
+
+    <div id="manage" class="manage">
+      <button type="button" id="add" class="btn small">Add card</button>
+      <button type="button" id="edit" class="btn small">Edit card</button>
+      <button type="button" id="del" class="btn small danger">Delete card</button>
+    </div>
+    <div id="confirmRow" class="manage" hidden>
+      <span>Delete this card?</span>
+      <button type="button" id="confirmDel" class="btn small danger">Delete</button>
+      <button type="button" id="keep" class="btn small">Keep</button>
+    </div>
+
+    <form id="editor" class="panel" hidden novalidate>
+      <h2 id="editorTitle">New card</h2>
+      <label for="qInput">Question (front)</label>
+      <textarea id="qInput" rows="3" maxlength="500"></textarea>
+      <label for="aInput">Answer (back)</label>
+      <textarea id="aInput" rows="3" maxlength="1000"></textarea>
+      <p id="formError" class="error" role="alert" hidden></p>
+      <div class="actions">
+        <button type="submit" class="btn primary">Save card</button>
+        <button type="button" id="cancelEdit" class="btn">Cancel</button>
+      </div>
+    </form>
+
+    <section class="all" aria-label="All cards">
+      <h2>All cards</h2>
+      <ol id="list" class="list"></ol>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  var KEY = "cardbox-deck-v1";
+  var $ = function (id) { return document.getElementById(id); };
+
+  var SAMPLE = [
+    { q: "What does the HTTP status code 404 mean?", a: "The server can't find the resource that was requested." },
+    { q: "What is the capital of Australia?", a: "Canberra. Sydney is the largest city, but not the capital." },
+    { q: "Write the overall equation for photosynthesis.", a: "6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂" },
+    { q: "How do you say “good morning” in Spanish?", a: "Buenos días." },
+    { q: "What is the derivative of sin(x)?", a: "cos(x)" },
+    { q: "In what year did the Berlin Wall fall?", a: "1989" }
+  ];
+
+  var cards = [];
+  var idx = 0;
+  var flipped = false;
+  var sample = true;
+  var ready = false;
+  var editing = null;      // null, {mode:"add"}, or {mode:"edit", id}
+  var confirming = false;
+  var ref = null;          // db document for this viewer's deck, when available
+
+  function uid() { return "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  SAMPLE.forEach(function (c) { cards.push({ id: uid(), q: c.q, a: c.a }); });
+
+  // ---------- rendering ----------
+  function setStatus(t) { $("status").textContent = t; }
+
+  function renderList() {
+    var ol = $("list");
+    ol.textContent = "";
+    if (!cards.length) {
+      var li0 = document.createElement("li");
+      var p = document.createElement("p");
+      p.className = "list-empty";
+      p.textContent = "Your cards will be listed here.";
+      li0.appendChild(p);
+      ol.appendChild(li0);
+      return;
+    }
+    cards.forEach(function (c, i) {
+      var li = document.createElement("li");
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "row" + (i === idx ? " current" : "");
+      if (i === idx) b.setAttribute("aria-current", "true");
+      var n = document.createElement("span");
+      n.className = "num";
+      n.textContent = String(i + 1);
+      var q = document.createElement("span");
+      q.className = "q";
+      q.textContent = c.q;
+      b.appendChild(n);
+      b.appendChild(q);
+      b.addEventListener("click", function () { jump(i); });
+      li.appendChild(b);
+      ol.appendChild(li);
+    });
+  }
+
+  function render(snap) {
+    var n = cards.length;
+    if (idx >= n) idx = n - 1;
+    if (idx < 0) idx = 0;
+
+    var hasCards = n > 0;
+    $("study").hidden = !hasCards;
+    $("empty").hidden = hasCards;
+    $("sampleNote").hidden = !(sample && hasCards);
+    $("edit").hidden = !hasCards;
+    $("del").hidden = !hasCards;
+    $("manage").hidden = confirming || (!hasCards && true);
+    $("confirmRow").hidden = !(confirming && hasCards);
+
+    $("add").disabled = !ready;
+    $("edit").disabled = !ready;
+    $("del").disabled = !ready;
+    $("emptyAdd").disabled = !ready;
+
+    if (hasCards) {
+      var c = cards[idx];
+      var cardEl = $("card");
+      if (snap) cardEl.classList.add("snap");
+      $("qText").textContent = c.q;
+      $("aText").textContent = c.a;
+      cardEl.classList.toggle("flipped", flipped);
+      $("front").inert = flipped;
+      $("back").inert = !flipped;
+      $("front").setAttribute("aria-hidden", flipped ? "true" : "false");
+      $("back").setAttribute("aria-hidden", flipped ? "false" : "true");
+      if (snap) {
+        void cardEl.offsetWidth;
+        requestAnimationFrame(function () { cardEl.classList.remove("snap"); });
+      }
+      $("counter").textContent = "Card " + (idx + 1) + " of " + n;
+      $("barFill").style.width = ((idx + 1) / n * 100) + "%";
+      $("flip").textContent = flipped ? "Show Question" : "Show Answer";
+      $("prev").disabled = idx === 0;
+      $("next").disabled = idx === n - 1;
+    }
+
+    $("editor").hidden = !editing;
+    renderList();
+  }
+
+  // ---------- navigation ----------
+  function jump(i) {
+    if (i < 0 || i >= cards.length) return;
+    idx = i;
+    flipped = false;
+    confirming = false;
+    render(true);
+    try { $("card").scrollIntoView({ block: "nearest" }); } catch (e) {}
+  }
+  function toggle() { if (!cards.length) return; flipped = !flipped; render(); }
+
+  $("prev").addEventListener("click", function () { jump(idx - 1); });
+  $("next").addEventListener("click", function () { jump(idx + 1); });
+  $("flip").addEventListener("click", toggle);
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target;
+    if (t && t.closest && t.closest("input, textarea, select")) return;
+    if (editing) return;
+    if (e.key === "ArrowRight") { jump(idx + 1); }
+    else if (e.key === "ArrowLeft") { jump(idx - 1); }
+    else if (e.key === " " && t === document.body) { e.preventDefault(); toggle(); }
+  });
+
+  // ---------- add / edit / delete ----------
+  function openEditor(mode) {
+    var card = cards[idx];
+    editing = mode === "edit" && card ? { mode: "edit", id: card.id } : { mode: "add" };
+    confirming = false;
+    $("editorTitle").textContent = editing.mode === "edit" ? "Edit card" : "New card";
+    $("qInput").value = editing.mode === "edit" ? card.q : "";
+    $("aInput").value = editing.mode === "edit" ? card.a : "";
+    $("formError").hidden = true;
+    render();
+    try { $("editor").scrollIntoView({ block: "nearest" }); } catch (e) {}
+    $("qInput").focus();
+  }
+  function closeEditor() { editing = null; render(); }
+
+  $("add").addEventListener("click", function () { openEditor("add"); });
+  $("emptyAdd").addEventListener("click", function () { openEditor("add"); });
+  $("edit").addEventListener("click", function () { openEditor("edit"); });
+  $("cancelEdit").addEventListener("click", closeEditor);
+
+  $("editor").addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { e.preventDefault(); closeEditor(); }
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $("editor").requestSubmit(); }
+  });
+
+  $("editor").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = $("qInput").value.trim();
+    var a = $("aInput").value.trim();
+    if (!q || !a) {
+      var err = $("formError");
+      err.textContent = "Enter both a question and an answer before saving.";
+      err.hidden = false;
+      (q ? $("aInput") : $("qInput")).focus();
+      return;
+    }
+    if (editing.mode === "add") {
+      cards.push({ id: uid(), q: q, a: a });
+      idx = cards.length - 1;
+    } else {
+      var target = cards.filter(function (c) { return c.id === editing.id; })[0];
+      if (target) { target.q = q; target.a = a; }
+    }
+    editing = null;
+    flipped = false;
+    changed();
+  });
+
+  $("del").addEventListener("click", function () { confirming = true; render(); $("keep").focus(); });
+  $("keep").addEventListener("click", function () { confirming = false; render(); $("del").focus(); });
+  $("confirmDel").addEventListener("click", function () {
+    cards.splice(idx, 1);
+    if (idx >= cards.length) idx = cards.length - 1;
+    confirming = false;
+    flipped = false;
+    changed();
+  });
+
+  // ---------- saving ----------
+  var saving = false;
+  var dirty = false;
+  var timer = null;
+
+  function changed() {
+    sample = false;
+    render(true);
+    dirty = true;
+    setStatus("Saving…");
+    clearTimeout(timer);
+    timer = setTimeout(flush, 350);
+  }
+
+  function persist(list) {
+    var done = Promise.resolve(false);
+    if (ref) {
+      done = ref.set({ cards: list, updatedAt: new Date().toISOString() }).then(function () {
+        setStatus("Saved");
+        return true;
+      }, function () {
+        ref = null;
+        return false;
+      });
+    }
+    return done.then(function (ok) {
+      if (ok) return;
+      try {
+        localStorage.setItem(KEY, JSON.stringify(list));
+        setStatus("Saved on this device");
+      } catch (e) {
+        setStatus("Not saved. Your changes last until you close this page.");
+      }
+    });
+  }
+
+  function flush() {
+    if (saving) return;
+    saving = true;
+    (function loop() {
+      if (!dirty) { saving = false; return; }
+      dirty = false;
+      var list = cards.map(function (c) { return { id: c.id, q: c.q, a: c.a }; });
+      persist(list).then(loop, function () { saving = false; });
+    })();
+  }
+
+  // ---------- loading ----------
+  function valid(c) { return c && typeof c.q === "string" && typeof c.a === "string"; }
+  function clean(c) { return { id: typeof c.id === "string" ? c.id : uid(), q: c.q, a: c.a }; }
+
+  function openStore() {
+    try {
+      if (!window.claude || !window.claude.use) return Promise.resolve(null);
+      return Promise.all([window.claude.use("user"), window.claude.use("db")]).then(function (r) {
+        var user = r[0], db = r[1];
+        if (!user || !db) return null;
+        return user.id().then(function (id) {
+          return id ? db.collection("data/users/" + id).doc("deck") : null;
+        });
+      }).catch(function () { return null; });
+    } catch (e) { return Promise.resolve(null); }
+  }
+
+  function boot() {
+    render();
+    openStore().then(function (r) {
+      ref = r;
+      if (ref) {
+        return ref.get().then(function (snap) {
+          var d = snap.exists ? snap.data() : null;
+          return d && Array.isArray(d.cards) ? d.cards : null;
+        }).catch(function () { ref = null; return undefined; });
+      }
+      return undefined;
+    }).then(function (loaded) {
+      if (loaded === undefined && !ref) {
+        try {
+          var raw = localStorage.getItem(KEY);
+          var parsed = raw ? JSON.parse(raw) : null;
+          loaded = Array.isArray(parsed) ? parsed : null;
+        } catch (e) { loaded = null; }
+      }
+      if (loaded) {
+        cards = loaded.filter(valid).map(clean);
+        sample = false;
+        idx = 0;
+      }
+      ready = true;
+      setStatus(ref ? "Saves to your account" : "Saves on this device");
+      render(true);
+    });
+  }
+
+  boot();
+})();
+</script>
+
+</body></html>
